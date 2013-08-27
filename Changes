@@ -42,6 +42,8 @@ Revision history for Moo
   - Quoted subs now preserve the package and pragmas from their calling code
   - the official Moo git repository has moved to the Moose organization on
     GitHub: https://github.com/moose/Moo
+  - fix calling non-Moo parent constructor when C3 multiple inheritance is in
+    use (such as when combining with DBIx::Class)
 
 1.003001 - 2013-09-10
   - abbreviate class names from created by create_class_with_roles if they are
