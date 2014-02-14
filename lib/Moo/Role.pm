@@ -28,9 +28,12 @@ sub _install_tracked {
 
 sub import {
   my $target = caller;
+
+  strict->import;
+  warnings->import;
+
   my ($me) = @_;
   _set_loaded(caller);
-  strictures->import::into(1);
   if ($Moo::MAKERS{$target} and $Moo::MAKERS{$target}{is_class}) {
     die "Cannot import Moo::Role into a Moo class";
   }
@@ -372,6 +375,7 @@ Moo::Role - Minimal Object Orientation support for Roles
  package My::Role;
 
  use Moo::Role;
+ use strictures 1;
 
  sub foo { ... }
 
@@ -388,6 +392,7 @@ And elsewhere:
  package Some::Class;
 
  use Moo;
+ use strictures 1;
 
  # bar gets imported, but not foo
  with('My::Role');
