@@ -104,4 +104,7 @@ is exception { Sub::Quote->CLONE }, undef,
 ok !exists $Sub::Quote::QUOTED{$foo3_string},
   'CLONE removes expired entries that were kept alive externally';
 
+my @stuff = (qsub q{ print "hello"; }, 1, 2);
+is scalar @stuff, 3, 'qsub only accepts a single parameter';
+
 done_testing;
