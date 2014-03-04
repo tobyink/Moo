@@ -168,10 +168,16 @@ sub _constructor_maker_for {
       grep !$MAKERS{$_},
       @parents;
 
+    my $buildall = !($non_moo && (
+      grep $target->isa($_),
+        qw(Moose::Object Mouse::Object Class::Tiny::Object)
+    ));
+
     ($con ? ref($con) : 'Method::Generate::Constructor')
       ->new(
         package => $target,
         accessor_generator => $class->_accessor_maker_for($target),
+        buildall => $buildall,
         $non_moo ? (
           construction_builder => sub {
             '$class->'.$target.'::SUPER::new('

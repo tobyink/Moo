@@ -4,7 +4,7 @@ use strictures 1;
 use Sub::Quote;
 use base qw(Moo::Object);
 use Sub::Defer;
-use Moo::_Utils qw(_getstash perlstring);
+use Moo::_Utils qw(_getglob perlstring);
 
 sub register_attribute_specs {
   my ($self, @new_specs) = @_;
@@ -91,13 +91,22 @@ sub generate_method {
   } else {
       $body .= $self->_generate_args;
   }
+  if ( !$into_buildargs ) {
+    *{_getglob("${into}::BUILDARGS")} = \&Moo::Object::BUILDARGS;
+  }
   $body .= $self->_check_required($spec);
   $body .= '    my $new = '.$self->construction_string.";\n";
   $body .= $self->_assign_new($spec);
   if ($into->can('BUILD')) {
-    $body .= $self->buildall_generator->buildall_body_for(
-      $into, '$new', '$args'
-    );
+    my $gen = $self->buildall_generator;
+    if (!$into->can('BUILDALL')) {
+      $gen->generate_method($into);
+    }
+    if (!exists $self->{buildall} || $self->{buildall}) {
+      $body .= $gen->buildall_body_for(
+        $into, '$new', '$args'
+      );
+    }
   }
   $body .= '    return $new;'."\n";
   if ($into->can('DEMOLISH')) {
@@ -204,6 +213,7 @@ Moo->_constructor_maker_for(__PACKAGE__)->register_attribute_specs(
   construction_builder => { is => 'bare' },
   subconstructor_handler => { is => 'ro' },
   package => { is => 'bare' },
+  buildall => { is => 'bare' },
 );
 
 1;
