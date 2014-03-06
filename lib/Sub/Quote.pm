@@ -34,14 +34,20 @@ sub capture_unroll {
 sub inlinify {
   my ($code, $args, $extra, $local) = @_;
   my $do = 'do { '.($extra||'');
-  if ($code =~ s/^(\s*package\s+([a-zA-Z0-9:]+);)//) {
+  if ($code =~ s/\A(\s*package\s+([a-zA-Z0-9:]+);\n*)//ms) {
     $do .= $1;
   }
-  if ($code =~ s{(\A\s*|# END quote_sub PRELUDE\n\s*)(^\s*)(my\s*\(([^)]+)\)\s*=\s*\@_;)$}{
+  if ($code =~ s/\A(.*?\n# END quote_sub PRELUDE\n)//ms) {
+    $do .= $1;
+  }
+  if ($code =~ s/\A(#line \d+ "[^"]+"\n)//ms) {
+    $do .= $1;
+  }
+  if ($code =~ s{(\A\s*)(^\s*)(my\s*\(([^)]+)\)\s*=\s*\@_;)$}{
     my ($pre, $indent, $assign, $code_args) = ($1, $2, $3, $4);
     if ($code_args eq $args) {
-      $pre . $indent . ($local ? 'local ' : '').'@_ = ('.$args.");\n"
-      . $indent . $assign;
+      $pre . $indent . ($local ? 'local ' : '').'@_ = ('.$args.'); '
+      . $assign;
     }
     else {
       $pre . 'my ('.$code_args.') = ('.$args.'); ';
@@ -70,20 +76,10 @@ sub quote_sub {
   undef($captures) if $captures && !keys %$captures;
   my $code = pop;
   my $name = $_[0];
-  my ($package, $hints, $bitmask, $hintshash) = (caller(0))[0,8,9,10];
-  my $context
-    ="package $package;\n"
-    ."BEGIN {\n"
-    ."  \$^H = ".perlstring($hints).";\n"
-    ."  \${^WARNING_BITS} = ".perlstring($bitmask).";\n"
-    ."  \%^H = (\n"
-    . join('', map
-     "    ".perlstring($_)." => ".perlstring($hintshash->{$_}).",",
-      keys %$hintshash)
-    ."  );\n"
-    ."}\n"
-    ."# END quote_sub PRELUDE\n";
-  $code = "$context$code";
+
+  my $context = _context_code($options);
+  $code = $context . $code;
+
   my $quoted_info;
   my $unquoted;
   my $deferred = defer_sub +($options->{no_install} ? undef : $name) => sub {
@@ -95,6 +91,31 @@ sub quote_sub {
   weaken($quoted_info->[4]);
   weaken($QUOTED{$deferred} = $quoted_info);
   return $deferred;
+}
+
+sub _context_code {
+  my ($options) = @_;
+
+  my @caller   = caller(1 + ($options->{level} || 0));
+  my $package  = exists $options->{package}  ? $options->{package}   : $caller[0];
+  my $file     = exists $options->{file}     ? $options->{file}      : $caller[1];
+  my $line     = exists $options->{line}     ? $options->{line}      : $caller[2];
+  my $hints    = exists $options->{hints}    ? $options->{hints}     : $caller[8];
+  my $bitmask  = exists $options->{bitmask}  ? $options->{bitmask}   : $caller[9];
+  my $hinthash = exists $options->{hinthash} ? $options->{hintshash} : $caller[10];
+  my $prelude
+    =(defined $hints    ? "  \$^H = ".perlstring($hints).";\n" : '')
+    .(defined $bitmask  ? "  \${^WARNING_BITS} = ".perlstring($bitmask).";\n" : '')
+    .(defined $hinthash ? "  \%^H = (\n"
+      . join('', map
+      "    ".perlstring($_)." => ".perlstring($hinthash->{$_}).",",
+        keys %$hinthash)
+      ."  );\n"
+      : '');
+  (defined $package ? "package $package;\n" : '')
+    .($prelude ? "BEGIN {\n$prelude}\n" : '')
+    ."# END quote_sub PRELUDE\n"
+    .(defined $file && defined $line ? qq[#line $line "$file"\n] : '');
 }
 
 sub quoted_from_sub {
