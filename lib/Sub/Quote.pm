@@ -1,8 +1,11 @@
 package Sub::Quote;
 
-use strictures 1;
+sub _clean_eval {
+  package Sub::Quote::_Capture;
+  eval $_[0];
+}
 
-sub _clean_eval { eval $_[0] }
+use strictures 1;
 
 use Sub::Defer;
 use Scalar::Util qw(weaken);
@@ -31,13 +34,13 @@ sub capture_unroll {
     my ($var) = $capture =~ /^[\@\%\$](.*)/
       or die "capture key should start with \@, \% or \$: $capture";
     my $capture_string = perlstring($capture);
-    $out .= $indent
-      . qq[*${var} = ${from}->{$capture_string};\n]
-      . qq[our ${capture};\n];
+    $out
+      .= $indent . qq[*${var} = ${from}->{$capture_string};\n]
+      . $indent . qq[our ${capture};\n];
   }
-  $out .= $indent . 'package ' . __PACKAGE__ . ";\n";
-  $out .= 'delete $' . __PACKAGE__ . "::_Capture::{'__${pack}__::'};\n";
-  $out;
+  $out
+    . $indent . "package Sub::Quote::_Capture;\n"
+    . $indent . "delete \$Sub::Quote::_Capture::{'__${pack}__::'};\n";
 }
 
 sub inlinify {
