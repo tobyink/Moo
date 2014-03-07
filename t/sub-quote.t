@@ -60,6 +60,13 @@ like $quoted2->[1], qr/return 5;/,
   "can still get quoted from installed sub after undefer";
 undef $quoted;
 
+my $var = 5;
+my $five = quote_sub q{
+  $var++;
+}, { '$var' => \$var };
+$five->();
+is $var, 6, 'captured variables are aliases';
+
 my $broken_quoted = quote_sub q{
   return 5$;
 };

@@ -19,16 +19,25 @@ sub perlstring {
   defined $_[0] ? qq["\Q$_[0]\E"] : '0';
 }
 
+my $pack = 'A000';
 sub capture_unroll {
   my ($from, $captures, $indent) = @_;
-  join(
-    '',
-    map {
-      /^([\@\%\$])/
-        or die "capture key should start with \@, \% or \$: $_";
-      (' ' x $indent).qq{my ${_} = ${1}{${from}->{${\perlstring $_}}};\n};
-    } keys %$captures
-  );
+  my $out = '';
+  $indent = ' ' x $indent;
+  $pack++;
+  my $package = __PACKAGE__."::_Capture::__${pack}__";
+  $out .= $indent . "package ${package};\n";
+  for my $capture (keys %$captures) {
+    my ($var) = $capture =~ /^[\@\%\$](.*)/
+      or die "capture key should start with \@, \% or \$: $capture";
+    my $capture_string = perlstring($capture);
+    $out .= $indent
+      . qq[*${var} = ${from}->{$capture_string};\n]
+      . qq[our ${capture};\n];
+  }
+  $out .= $indent . 'package ' . __PACKAGE__ . ";\n";
+  $out .= 'delete $' . __PACKAGE__ . "::_Capture::{'__${pack}__::'};\n";
+  $out;
 }
 
 sub inlinify {
