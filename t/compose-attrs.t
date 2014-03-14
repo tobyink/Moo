@@ -51,4 +51,20 @@ is( A2->new->attr, 'R1', "don't override existing attribute in first role" );
     );
 }
 
+{
+  package R3;
+  use Moo::Role;
+
+  has attr => ( is => 'ro', default => sub { __PACKAGE__ });
+  with 'R1';
+}
+
+{
+  package A4;
+  use Moo;
+  with 'R3';
+}
+
+is( A4->new->attr, 'R3', "don't override existing attribute in roles" );
+
 done_testing;
